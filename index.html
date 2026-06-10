@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>English Flow</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="config.js?v=20260610" defer></script>
+    <script src="storage.js?v=20260610" defer></script>
+    <script src="speech.js?v=20260610" defer></script>
+    <script src="history.js?v=20260610" defer></script>
+    <script src="review.js?v=20260610" defer></script>
+    <script src="mastered.js?v=20260610" defer></script>
+    <script src="player.js?v=20260610" defer></script>
+    <script src="sentence.js?v=20260610" defer></script>
+    <script src="app.js?v=20260610" defer></script>
+  </head>
+  <body>
+    <main class="app">
+      <header class="app-header">
+        <p class="eyebrow">English Flow</p>
+        <h1>每日输入</h1>
+      </header>
+
+      <section class="word-panel" aria-label="当前单词" data-word-panel>
+        <p class="word-label">当前单词</p>
+        <p class="word-text" data-word-text>example</p>
+        <p class="phonetic" data-phonetic>/ig'zampəl/</p>
+        <p class="meaning" data-meaning>例子；样例</p>
+        <button class="secondary-button word-action" type="button" data-toggle-mastered>⭐ 标熟</button>
+      </section>
+
+      <section class="status-panel" aria-label="学习状态">
+        <div>
+          <span class="status-label">状态</span>
+          <strong data-play-status>准备</strong>
+        </div>
+        <div>
+          <span class="status-label">进度</span>
+          <strong data-progress>1 / 5</strong>
+        </div>
+        <div>
+          <span class="status-label">今日</span>
+          <strong data-today-count>0 / 50</strong>
+        </div>
+        <div>
+          <span class="status-label">总计</span>
+          <strong data-total-count>0</strong>
+        </div>
+      </section>
+
+      <section class="goal-panel" aria-label="今日目标">
+        <label class="goal-field">
+          <span class="status-label">今日目标</span>
+          <select data-goal-select>
+            <option value="20">20词</option>
+            <option value="30">30词</option>
+            <option value="50">50词</option>
+            <option value="100">100词</option>
+            <option value="custom">自定义</option>
+          </select>
+        </label>
+        <input data-goal-custom type="number" min="1" inputmode="numeric" aria-label="自定义今日目标" hidden>
+      </section>
+
+      <label class="goal-panel" aria-label="播放模式">
+        <span class="status-label">播放模式</span>
+        <select data-playback-mode>
+          <option value="loop">循环播放</option>
+          <option value="pause">播完暂停</option>
+        </select>
+      </label>
+
+      <label class="goal-panel" aria-label="播放顺序">
+        <span class="status-label">播放顺序</span>
+        <select data-playback-order>
+          <option value="sequential">顺序播放</option>
+          <option value="shuffle">随机播放</option>
+        </select>
+      </label>
+
+      <label class="goal-panel" aria-label="词库">
+        <span class="status-label">词库</span>
+        <select data-library-select></select>
+      </label>
+
+      <section class="history-panel" aria-label="学习记录">
+        <p class="word-label">学习记录</p>
+        <ul data-history-list></ul>
+      </section>
+
+      <section class="review-panel" aria-label="复习提醒">
+        <p class="word-label">今日复习</p>
+        <strong data-review-count>0 待复习</strong>
+        <ul data-review-list></ul>
+        <p class="review-summary" data-review-summary>0 已计划</p>
+      </section>
+
+      <label class="sentence-panel">
+        <span class="word-label">句子</span>
+        <textarea data-sentence-input rows="4" placeholder="输入英文句子"></textarea>
+        <span class="sentence-status" data-sentence-status>准备</span>
+        <div class="sentence-actions">
+          <button class="secondary-button" type="button" data-read-sentence>朗读句子</button>
+          <label class="loop-control">
+            <input type="checkbox" data-loop-sentence>
+            <span>循环</span>
+          </label>
+        </div>
+      </label>
+
+      <label class="speed-control">
+        <span class="status-label">语速</span>
+        <select data-speed-control>
+          <option value="4000">慢速</option>
+          <option value="3000" selected>正常</option>
+          <option value="2000">快速</option>
+        </select>
+      </label>
+
+      <button class="control-button" type="button" data-toggle-play>暂停</button>
+    </main>
+  </body>
+</html>

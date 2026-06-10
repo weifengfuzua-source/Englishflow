@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "text": "environment",
+    "phonetic": "/ɪn'vaɪrənmənt/",
+    "meaning": "环境；周围状况"
+  },
+  {
+    "id": 2,
+    "text": "community",
+    "phonetic": "/kə'mjuːnəti/",
+    "meaning": "社区；群体"
+  },
+  {
+    "id": 3,
+    "text": "impact",
+    "phonetic": "/'ɪmpækt/",
+    "meaning": "影响；冲击"
+  }
+]
