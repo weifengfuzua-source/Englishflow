@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "text": "example",
+    "phonetic": "/ig'zampəl/",
+    "meaning": "例子；样例"
+  },
+  {
+    "id": 2,
+    "text": "steady",
+    "phonetic": "/'stedi/",
+    "meaning": "稳定的；持续的"
+  },
+  {
+    "id": 3,
+    "text": "simple",
+    "phonetic": "/'sɪmpəl/",
+    "meaning": "简单的；朴素的"
+  },
+  {
+    "id": 4,
+    "text": "focus",
+    "phonetic": "/'fəʊkəs/",
+    "meaning": "专注；焦点"
+  },
+  {
+    "id": 5,
+    "text": "review",
+    "phonetic": "/rɪ'vjuː/",
+    "meaning": "复习；回顾"
+  }
+]
