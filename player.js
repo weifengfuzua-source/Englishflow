@@ -14,6 +14,8 @@ window.WordPlayer = {
       getWords,
       getIntervalTime,
       getSpeechRate,
+      getEnglishRepeatCount,
+      getShouldSpeakMeaning,
       getPlaybackMode,
       getPlaybackOrder,
       onCycleEnd,
@@ -141,6 +143,57 @@ window.WordPlayer = {
       nextWordTimer = window.setTimeout(showNextWord, getIntervalTime());
     }
 
+    function getRepeatCount() {
+      const count = Number(getEnglishRepeatCount?.()) || 1;
+
+      return Math.min(Math.max(count, 1), 3);
+    }
+
+    function speakWordRepeat(currentWord, remainingCount) {
+      if (!isPlaying || !currentWord) {
+        return;
+      }
+
+      window.SpeechService.speak(currentWord.text, {
+        rate: getSpeechRate(),
+        onEnd() {
+          if (!isPlaying) {
+            return;
+          }
+
+          if (remainingCount > 1) {
+            speakWordRepeat(currentWord, remainingCount - 1);
+            return;
+          }
+
+          speakMeaningOrSchedule(currentWord);
+        },
+        onUnavailable() {
+          playStatus.textContent = "朗读不可用";
+        },
+      });
+    }
+
+    function speakMeaningOrSchedule(currentWord) {
+      if (!isPlaying || !currentWord) {
+        return;
+      }
+
+      if (!getShouldSpeakMeaning?.()) {
+        scheduleNextWord();
+        return;
+      }
+
+      window.SpeechService.speak(currentWord.meaning, {
+        lang: "zh-CN",
+        rate: getSpeechRate(),
+        onEnd: scheduleNextWord,
+        onUnavailable() {
+          playStatus.textContent = "朗读不可用";
+        },
+      });
+    }
+
     function speakCurrentWord() {
       const currentWord = getCurrentWord();
 
@@ -148,13 +201,7 @@ window.WordPlayer = {
         return;
       }
 
-      window.SpeechService.speak(currentWord.text, {
-        rate: getSpeechRate(),
-        onEnd: scheduleNextWord,
-        onUnavailable() {
-          playStatus.textContent = "朗读不可用";
-        },
-      });
+      speakWordRepeat(currentWord, getRepeatCount());
     }
 
     function showNextWord() {

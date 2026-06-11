@@ -8,11 +8,14 @@ const meaning = document.querySelector("[data-meaning]");
 const toggleMastered = document.querySelector("[data-toggle-mastered]");
 const progress = document.querySelector("[data-progress]");
 const todayCount = document.querySelector("[data-today-count]");
+const copyTodayWordsButton = document.querySelector("[data-copy-today-words]");
 const totalCount = document.querySelector("[data-total-count]");
 const goalSelect = document.querySelector("[data-goal-select]");
 const goalCustom = document.querySelector("[data-goal-custom]");
 const playbackMode = document.querySelector("[data-playback-mode]");
 const playbackOrder = document.querySelector("[data-playback-order]");
+const englishRepeat = document.querySelector("[data-english-repeat]");
+const meaningSpeech = document.querySelector("[data-meaning-speech]");
 const librarySelect = document.querySelector("[data-library-select]");
 const historyList = document.querySelector("[data-history-list]");
 const reviewCount = document.querySelector("[data-review-count]");
@@ -29,12 +32,15 @@ const storageKey = "english-flow-learning";
 const dailyGoalStorageKey = "english-flow-daily-goal";
 const playbackModeStorageKey = "english-flow-playback-mode";
 const playbackOrderStorageKey = "english-flow-playback-order";
+const englishRepeatStorageKey = "english-flow-english-repeat";
+const meaningSpeechStorageKey = "english-flow-meaning-speech";
 const selectedLibraryStorageKey = "english-flow-selected-library";
 const playbackPositionStorageKey = "english-flow-playback-position";
 const todaySessionStorageKey = "english-flow-today-session";
 const speedStorageKey = "english-flow-speed";
 const customGoalValue = "custom";
 const priorityLearningMode = "PRIORITY";
+const copyTodayWordsLabel = "复制今日单词";
 
 let words = window.CONFIG.fallbackWords;
 let playableWords = window.CONFIG.fallbackWords;
@@ -44,6 +50,8 @@ let dailyGoal = 50;
 let currentLearningMode = priorityLearningMode;
 let currentPlaybackMode = window.CONFIG.defaultPlaybackMode;
 let currentPlaybackOrder = window.CONFIG.defaultPlaybackOrder;
+let englishRepeatCount = 1;
+let shouldSpeakMeaning = false;
 let currentLibraryId = window.CONFIG.defaultLibraryId;
 let isRestoringPlayback = false;
 let todaySession = null;
@@ -179,6 +187,48 @@ function handlePlaybackOrderChange() {
   window.StorageService.setText(playbackOrderStorageKey, currentPlaybackOrder);
   clearPlaybackPosition();
   wordPlayer.restart();
+}
+
+function normalizeEnglishRepeatCount(value) {
+  const count = Number(value);
+
+  return [1, 2, 3].includes(count) ? count : 1;
+}
+
+function loadEnglishRepeatCount() {
+  englishRepeatCount = normalizeEnglishRepeatCount(
+    window.StorageService.getText(englishRepeatStorageKey, "1")
+  );
+
+  if (englishRepeat) {
+    englishRepeat.value = String(englishRepeatCount);
+  }
+
+  window.StorageService.setText(englishRepeatStorageKey, String(englishRepeatCount));
+}
+
+function handleEnglishRepeatChange() {
+  englishRepeatCount = normalizeEnglishRepeatCount(englishRepeat.value);
+  englishRepeat.value = String(englishRepeatCount);
+  window.StorageService.setText(englishRepeatStorageKey, String(englishRepeatCount));
+  wordPlayer.handleSpeedChange();
+}
+
+function loadMeaningSpeech() {
+  const savedValue = window.StorageService.getText(meaningSpeechStorageKey, "off");
+  shouldSpeakMeaning = savedValue === "on";
+
+  if (meaningSpeech) {
+    meaningSpeech.value = shouldSpeakMeaning ? "on" : "off";
+  }
+
+  window.StorageService.setText(meaningSpeechStorageKey, shouldSpeakMeaning ? "on" : "off");
+}
+
+function handleMeaningSpeechChange() {
+  shouldSpeakMeaning = meaningSpeech.value === "on";
+  window.StorageService.setText(meaningSpeechStorageKey, shouldSpeakMeaning ? "on" : "off");
+  wordPlayer.handleSpeedChange();
 }
 
 function getPlaybackPositionKey() {
@@ -511,6 +561,61 @@ function getTodaySessionProgress(data, todayKey) {
   return Math.min(todaySession.currentIndex + 1, todaySession.wordIds.length);
 }
 
+function getTodayWordIds(data, todayKey) {
+  const dailyWords = data.dailyWords?.[todayKey];
+
+  if (dailyWords) {
+    return Object.keys(dailyWords).map(Number);
+  }
+
+  return todaySession?.wordIds || [];
+}
+
+function getTodayWordLines() {
+  const data = loadLearningData();
+  const todayKey = getTodayKey();
+
+  return getTodayWordIds(data, todayKey)
+    .map((id) => findWordById(id))
+    .filter(Boolean)
+    .map((word) => `${word.text}\t${word.meaning}`);
+}
+
+function showCopyTodayWordsStatus(count) {
+  if (!copyTodayWordsButton) {
+    return;
+  }
+
+  copyTodayWordsButton.textContent = `已复制${count}个单词`;
+  window.setTimeout(() => {
+    copyTodayWordsButton.textContent = copyTodayWordsLabel;
+  }, 1600);
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.append(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
+}
+
+async function handleCopyTodayWords() {
+  const lines = getTodayWordLines();
+
+  await copyText(lines.join("\n"));
+  showCopyTodayWordsStatus(lines.length);
+}
+
 function renderLearningData() {
   const data = loadLearningData();
   const todayKey = getTodayKey();
@@ -653,6 +758,8 @@ function createWordPlayer() {
     getWords: () => playableWords,
     getIntervalTime,
     getSpeechRate,
+    getEnglishRepeatCount: () => englishRepeatCount,
+    getShouldSpeakMeaning: () => shouldSpeakMeaning,
     getPlaybackMode: () => currentPlaybackMode,
     getPlaybackOrder: () => currentPlaybackOrder,
     onCycleEnd: refreshPlayableWords,
@@ -693,6 +800,10 @@ loadWords().then(() => {
     speedControl.addEventListener("change", handleSpeedChange);
   }
 
+  if (copyTodayWordsButton) {
+    copyTodayWordsButton.addEventListener("click", handleCopyTodayWords);
+  }
+
   if (goalSelect) {
     goalSelect.addEventListener("change", handleGoalSelectChange);
   }
@@ -709,6 +820,14 @@ loadWords().then(() => {
     playbackOrder.addEventListener("change", handlePlaybackOrderChange);
   }
 
+  if (englishRepeat) {
+    englishRepeat.addEventListener("change", handleEnglishRepeatChange);
+  }
+
+  if (meaningSpeech) {
+    meaningSpeech.addEventListener("change", handleMeaningSpeechChange);
+  }
+
   if (librarySelect) {
     librarySelect.addEventListener("change", handleLibraryChange);
   }
@@ -723,6 +842,8 @@ loadWords().then(() => {
   loadSpeed();
   loadPlaybackMode();
   loadPlaybackOrder();
+  loadEnglishRepeatCount();
+  loadMeaningSpeech();
   loadDailyGoal();
   loadTodaySession();
   isRestoringPlayback = true;

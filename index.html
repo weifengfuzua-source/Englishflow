@@ -42,6 +42,7 @@
         <div>
           <span class="status-label">今日</span>
           <strong data-today-count>0 / 50</strong>
+          <button class="secondary-button" type="button" data-copy-today-words>复制今日单词</button>
         </div>
         <div>
           <span class="status-label">总计</span>
@@ -76,6 +77,23 @@
         <select data-playback-order>
           <option value="sequential">顺序播放</option>
           <option value="shuffle">随机播放</option>
+        </select>
+      </label>
+
+      <label class="goal-panel" aria-label="英文朗读次数">
+        <span class="status-label">英文朗读次数</span>
+        <select data-english-repeat>
+          <option value="1">1次</option>
+          <option value="2">2次</option>
+          <option value="3">3次</option>
+        </select>
+      </label>
+
+      <label class="goal-panel" aria-label="朗读中文释义">
+        <span class="status-label">朗读中文释义</span>
+        <select data-meaning-speech>
+          <option value="off">关</option>
+          <option value="on">开</option>
         </select>
       </label>
 

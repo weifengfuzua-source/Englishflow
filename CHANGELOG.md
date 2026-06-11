@@ -1,7 +1,13 @@
 # CHANGELOG
 
+## 2026-06-11
+
+- Completed TODO 052: added saved Chinese meaning speech toggle after English pronunciation.
+
 ## 2026-06-10
 
+- Completed TODO 051: added saved English repeat count and repeated word pronunciation before advancing.
+- Completed TODO 050: added copying today's learned words as English-tab-meaning lines.
 - Added GitHub Pages cache-busting script versions and library switching diagnostics for fetch and loaded word counts.
 - Aligned library switching order so session reset, player refresh, restart, and learning UI render stay in sync.
 - Fixed library switching session refresh by binding todaySession to libraryId and updating the player list immediately.
