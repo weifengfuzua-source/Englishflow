@@ -2,6 +2,10 @@
 
 ## 2026-06-11
 
+- Completed TODO 058: restricted unique new word counting to dailyWords only.
+- Completed TODO 057: removed saved total maintenance and render unique learned words from live data.
+- Completed TODO 056: changed total from playback count to unique learned new words with old data recalculation.
+- Completed TODO 054: fixed dailyGoal to count new words separately from due reviews.
 - Completed TODO 052: added saved Chinese meaning speech toggle after English pronunciation.
 
 ## 2026-06-10

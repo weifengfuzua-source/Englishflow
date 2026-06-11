@@ -61,7 +61,6 @@ let masteredData = {
 
 function createDefaultLearningData() {
   return {
-    total: 0,
     days: {},
     dailyWords: {},
     history: [],
@@ -82,7 +81,6 @@ function loadLearningData() {
   const data = window.StorageService.getJson(getLearningStorageKey(), createDefaultLearningData());
 
   return {
-    total: Number(data.total) || 0,
     days: data.days || {},
     dailyWords: data.dailyWords || {},
     history: Array.isArray(data.history) ? data.history : [],
@@ -277,6 +275,7 @@ function createTodaySession(sessionWords = createTodaySessionWords()) {
   return {
     date: getTodayKey(),
     libraryId: currentLibraryId,
+    newWordGoal: dailyGoal,
     wordIds: sessionWords.map((word) => word.id),
     reviewWordIds: sessionWords
       .filter((word) => reviewWordIds.includes(word.id))
@@ -293,7 +292,10 @@ function isValidTodaySession(session) {
   return session
     && session.date === getTodayKey()
     && session.libraryId === currentLibraryId
+    && session.newWordGoal === dailyGoal
     && Array.isArray(session.wordIds)
+    && Array.isArray(session.reviewWordIds)
+    && Array.isArray(session.newWordIds)
     && session.wordIds.length > 0
     && session.wordIds.every((id) => Boolean(findWordById(id)));
 }
@@ -418,15 +420,10 @@ function getNewSessionWords() {
 
 function createTodaySessionWords() {
   const dueReviewWords = getDueReviewWords();
-
-  if (dueReviewWords.length >= dailyGoal) {
-    return dueReviewWords.slice(0, dailyGoal);
-  }
-
   const dueReviewIds = new Set(dueReviewWords.map((word) => word.id));
   const newWords = getNewSessionWords()
     .filter((word) => !dueReviewIds.has(word.id))
-    .slice(0, dailyGoal - dueReviewWords.length);
+    .slice(0, dailyGoal);
 
   return [...dueReviewWords, ...newWords];
 }
@@ -450,15 +447,19 @@ function getTodayNewWords() {
   const todayKey = getTodayKey();
   const dailyWords = data.dailyWords?.[todayKey] || {};
   const learnedIds = new Set(Object.keys(dailyWords).map(Number));
-  const learnedCount = getTodayLearnedCount(data, todayKey);
+  const reviewedIds = new Set(Object.keys(data.reviews).map(Number));
+  const learnedNewWords = getUnmasteredWords()
+    .filter((word) => learnedIds.has(word.id) && todaySession?.newWordIds?.includes(word.id));
 
-  if (learnedCount >= dailyGoal) {
-    return getTodayLearnedWords();
+  if (learnedNewWords.length >= dailyGoal) {
+    return learnedNewWords;
   }
 
-  return getUnmasteredWords()
-    .filter((word) => !learnedIds.has(word.id))
-    .slice(0, dailyGoal - learnedCount);
+  const pendingNewWords = getUnmasteredWords()
+    .filter((word) => !reviewedIds.has(word.id) && !learnedIds.has(word.id))
+    .slice(0, dailyGoal - learnedNewWords.length);
+
+  return [...learnedNewWords, ...pendingNewWords];
 }
 
 function getPriorityPlayableWords() {
@@ -553,12 +554,32 @@ function getTodayLearnedCount(data, todayKey) {
   return Object.keys(dailyWords).length;
 }
 
-function getTodaySessionProgress(data, todayKey) {
+function getLearnedTodayNewCount(data, todayKey) {
   if (!todaySession || todaySession.date !== todayKey) {
-    return getTodayLearnedCount(data, todayKey);
+    return 0;
   }
 
-  return Math.min(todaySession.currentIndex + 1, todaySession.wordIds.length);
+  const dailyWords = data.dailyWords?.[todayKey] || {};
+  return todaySession.newWordIds.filter((id) => dailyWords[id]).length;
+}
+
+function getCompletedTodayReviewCount(data, todayKey) {
+  if (!todaySession || todaySession.date !== todayKey) {
+    return 0;
+  }
+
+  return todaySession.reviewWordIds.filter((id) => {
+    const review = data.reviews[id];
+    return Array.isArray(review?.reviewDates) && review.reviewDates.includes(todayKey);
+  }).length;
+}
+
+function getTodaySessionProgressText(data, todayKey) {
+  const learnedNewCount = getLearnedTodayNewCount(data, todayKey);
+  const completedReviewCount = getCompletedTodayReviewCount(data, todayKey);
+  const reviewTotal = todaySession?.reviewWordIds?.length || 0;
+
+  return `新词 ${learnedNewCount} / ${dailyGoal} · 复习 ${completedReviewCount} / ${reviewTotal}`;
 }
 
 function getTodayWordIds(data, todayKey) {
@@ -621,8 +642,8 @@ function renderLearningData() {
   const todayKey = getTodayKey();
   const dueReviews = window.ReviewService.getDueReviews(data, todayKey);
 
-  todayCount.textContent = `${getTodaySessionProgress(data, todayKey)} / ${todaySession?.wordIds.length || dailyGoal}`;
-  totalCount.textContent = data.total;
+  todayCount.textContent = getTodaySessionProgressText(data, todayKey);
+  totalCount.textContent = window.HistoryService.countUniqueNewWords(data);
   historyList.innerHTML = "";
   reviewCount.textContent = `${dueReviews.length} 待复习`;
   reviewList.innerHTML = "";

@@ -1,8 +1,17 @@
 "use strict";
 
 window.HistoryService = {
+  countUniqueNewWords(data) {
+    const learnedIds = new Set();
+
+    Object.values(data.dailyWords || {}).forEach((dailyWords) => {
+      Object.keys(dailyWords || {}).forEach((id) => learnedIds.add(id));
+    });
+
+    return learnedIds.size;
+  },
+
   updateStatistics(data, todayKey) {
-    data.total += 1;
     data.days[todayKey] = (data.days[todayKey] || 0) + 1;
   },
 
