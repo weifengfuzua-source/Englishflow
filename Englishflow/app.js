@@ -5,6 +5,7 @@ const wordPanel = document.querySelector("[data-word-panel]");
 const wordText = document.querySelector("[data-word-text]");
 const phonetic = document.querySelector("[data-phonetic]");
 const meaning = document.querySelector("[data-meaning]");
+const toggleSkipped = document.querySelector("[data-toggle-skipped]");
 const toggleMastered = document.querySelector("[data-toggle-mastered]");
 const progress = document.querySelector("[data-progress]");
 const todayCount = document.querySelector("[data-today-count]");
@@ -41,6 +42,7 @@ const speedStorageKey = "english-flow-speed";
 const customGoalValue = "custom";
 const priorityLearningMode = "PRIORITY";
 const copyTodayWordsLabel = "复制今日单词";
+const todaySessionVersion = 4;
 
 let words = window.CONFIG.fallbackWords;
 let playableWords = window.CONFIG.fallbackWords;
@@ -125,6 +127,14 @@ function saveDailyGoal(value) {
   const nextGoal = Math.max(1, Number(value) || 50);
   dailyGoal = nextGoal;
   window.StorageService.setText(dailyGoalStorageKey, String(nextGoal));
+
+  if (todaySession && wordPlayer) {
+    clearPlaybackPosition();
+    resetTodaySession();
+    refreshPlayableWords({ updatePlayer: true });
+    wordPlayer.restart();
+  }
+
   renderLearningData();
 }
 
@@ -269,20 +279,39 @@ function getTodaySessionKey() {
   return `${todaySessionStorageKey}-${currentLibraryId}`;
 }
 
-function createTodaySession(sessionWords = createTodaySessionWords()) {
-  const reviewWordIds = getDueReviewWords().map((word) => word.id);
+function canReuseSamplePool(session) {
+  return session
+    && session.version === todaySessionVersion
+    && session.date === getTodayKey()
+    && session.libraryId === currentLibraryId
+    && Array.isArray(session.sampleWordIds)
+    && Array.isArray(session.sampleCompletedIds)
+    && session.sampleWordIds.every((id) => Boolean(findWordById(id)));
+}
+
+function createTodaySession(previousSession = null) {
+  const reuseSamplePool = canReuseSamplePool(previousSession);
+  const sessionWords = createTodaySessionWords(
+    reuseSamplePool ? previousSession.sampleWordIds : null
+  );
+  const { dueReviewWords, newWords, sampleWords } = sessionWords;
+  const reviewWordIds = dueReviewWords.map((word) => word.id);
+  const newWordIds = newWords.map((word) => word.id);
+  const sampleWordIds = sampleWords.map((word) => word.id);
+  const sampleCompletedIds = reuseSamplePool
+    ? previousSession.sampleCompletedIds.filter((id) => sampleWordIds.includes(id))
+    : [];
 
   return {
+    version: todaySessionVersion,
     date: getTodayKey(),
     libraryId: currentLibraryId,
     newWordGoal: dailyGoal,
-    wordIds: sessionWords.map((word) => word.id),
-    reviewWordIds: sessionWords
-      .filter((word) => reviewWordIds.includes(word.id))
-      .map((word) => word.id),
-    newWordIds: sessionWords
-      .filter((word) => !reviewWordIds.includes(word.id))
-      .map((word) => word.id),
+    wordIds: [...reviewWordIds, ...sampleWordIds, ...newWordIds],
+    reviewWordIds,
+    newWordIds,
+    sampleWordIds,
+    sampleCompletedIds,
     currentIndex: 0,
     completed: false,
   };
@@ -290,13 +319,22 @@ function createTodaySession(sessionWords = createTodaySessionWords()) {
 
 function isValidTodaySession(session) {
   return session
+    && session.version === todaySessionVersion
     && session.date === getTodayKey()
     && session.libraryId === currentLibraryId
     && session.newWordGoal === dailyGoal
     && Array.isArray(session.wordIds)
     && Array.isArray(session.reviewWordIds)
     && Array.isArray(session.newWordIds)
+    && Array.isArray(session.sampleWordIds)
+    && Array.isArray(session.sampleCompletedIds)
     && session.wordIds.length > 0
+    && session.wordIds.length === (
+      session.reviewWordIds.length + session.newWordIds.length + session.sampleWordIds.length
+    )
+    && session.wordIds.every((id, index) => (
+      id === [...session.reviewWordIds, ...session.sampleWordIds, ...session.newWordIds][index]
+    ))
     && session.wordIds.every((id) => Boolean(findWordById(id)));
 }
 
@@ -308,12 +346,12 @@ function saveTodaySession() {
 
 function loadTodaySession() {
   const savedSession = window.StorageService.getJson(getTodaySessionKey(), null);
-  todaySession = isValidTodaySession(savedSession) ? savedSession : createTodaySession();
+  todaySession = isValidTodaySession(savedSession) ? savedSession : createTodaySession(savedSession);
   saveTodaySession();
 }
 
 function resetTodaySession() {
-  todaySession = createTodaySession();
+  todaySession = createTodaySession(todaySession);
   todaySession.currentIndex = 0;
   saveTodaySession();
 }
@@ -409,7 +447,7 @@ function getDueReviewWords() {
   return window.ReviewService.getDueReviews(data, todayKey)
     .map((item) => findWordById(item.id))
     .filter(Boolean)
-    .filter((word) => !window.MasteredService.isMastered(masteredData, word.id));
+    .filter((word) => window.MasteredService.isActive(masteredData, word.id));
 }
 
 function getNewSessionWords() {
@@ -418,19 +456,29 @@ function getNewSessionWords() {
   return getUnmasteredWords().filter((word) => !data.reviews[word.id]);
 }
 
-function createTodaySessionWords() {
+function createTodaySessionWords(sampleWordIds = null) {
   const dueReviewWords = getDueReviewWords();
   const dueReviewIds = new Set(dueReviewWords.map((word) => word.id));
   const newWords = getNewSessionWords()
     .filter((word) => !dueReviewIds.has(word.id))
     .slice(0, dailyGoal);
+  const sampleWords = Array.isArray(sampleWordIds)
+    ? sampleWordIds.map((id) => findWordById(id)).filter(Boolean)
+    : window.MasteredService.getRandomMasteredWords(
+      masteredData,
+      words,
+      window.CONFIG.masteredSampleLimit
+    );
 
-  return [...dueReviewWords, ...newWords];
+  return {
+    dueReviewWords,
+    newWords,
+    sampleWords,
+  };
 }
 
 function getUnmasteredWords() {
-  const filteredWords = words.filter((word) => !window.MasteredService.isMastered(masteredData, word.id));
-  return filteredWords.length > 0 ? filteredWords : words;
+  return words.filter((word) => window.MasteredService.isActive(masteredData, word.id));
 }
 
 function getTodayLearnedWords() {
@@ -519,25 +567,35 @@ function refreshPlayableWords(options = {}) {
   }
 }
 
-function renderMasteredButton(currentWord) {
-  if (!toggleMastered || !currentWord) {
+function renderWordStatusButtons(currentWord) {
+  if (!toggleSkipped || !toggleMastered || !currentWord) {
     return;
   }
 
+  const isSkipped = window.MasteredService.isSkipped(masteredData, currentWord.id);
   const isMastered = window.MasteredService.isMastered(masteredData, currentWord.id);
-  toggleMastered.textContent = isMastered ? "⭐ 取消标熟" : "⭐ 标熟";
+  toggleSkipped.textContent = isSkipped ? "取消跳过" : "跳过";
+  toggleMastered.textContent = isMastered ? "取消掌握" : "掌握";
 }
 
-function handleMasteredToggle() {
+function handleWordStatusToggle(status) {
   const currentWord = wordPlayer?.getCurrentWord();
 
   if (!currentWord) {
     return;
   }
 
-  window.MasteredService.toggle(masteredData, currentWord.id);
+  window.MasteredService.setStatus(masteredData, currentWord.id, status);
   window.MasteredService.save(masteredData, currentLibraryId);
-  renderMasteredButton(currentWord);
+  renderWordStatusButtons(currentWord);
+}
+
+function handleSkippedToggle() {
+  handleWordStatusToggle("skipped");
+}
+
+function handleMasteredToggle() {
+  handleWordStatusToggle("mastered");
 }
 
 function findWordById(id) {
@@ -578,8 +636,10 @@ function getTodaySessionProgressText(data, todayKey) {
   const learnedNewCount = getLearnedTodayNewCount(data, todayKey);
   const completedReviewCount = getCompletedTodayReviewCount(data, todayKey);
   const reviewTotal = todaySession?.reviewWordIds?.length || 0;
+  const sampleCompleted = todaySession?.sampleCompletedIds?.length || 0;
+  const sampleTotal = todaySession?.sampleWordIds?.length || 0;
 
-  return `新词 ${learnedNewCount} / ${dailyGoal} · 复习 ${completedReviewCount} / ${reviewTotal}`;
+  return `新词 ${learnedNewCount} / ${dailyGoal} · 复习 ${completedReviewCount} / ${reviewTotal} · 抽查 ${sampleCompleted} / ${sampleTotal}`;
 }
 
 function getTodayWordIds(data, todayKey) {
@@ -589,7 +649,7 @@ function getTodayWordIds(data, todayKey) {
     return Object.keys(dailyWords).map(Number);
   }
 
-  return todaySession?.wordIds || [];
+  return todaySession?.wordIds.filter((id) => !todaySession.sampleWordIds.includes(id)) || [];
 }
 
 function getTodayWordLines() {
@@ -640,7 +700,8 @@ async function handleCopyTodayWords() {
 function renderLearningData() {
   const data = loadLearningData();
   const todayKey = getTodayKey();
-  const dueReviews = window.ReviewService.getDueReviews(data, todayKey);
+  const dueReviews = window.ReviewService.getDueReviews(data, todayKey)
+    .filter((item) => window.MasteredService.isActive(masteredData, item.id));
 
   todayCount.textContent = getTodaySessionProgressText(data, todayKey);
   totalCount.textContent = window.HistoryService.countUniqueNewWords(data);
@@ -665,6 +726,10 @@ function renderLearningData() {
 }
 
 function recordLearning(currentWord) {
+  if (todaySession?.sampleWordIds?.includes(currentWord.id)) {
+    return;
+  }
+
   const todayKey = getTodayKey();
   const data = loadLearningData();
 
@@ -678,7 +743,20 @@ function recordLearning(currentWord) {
 }
 
 function recordCompletedPlayback(currentWord) {
-  if (!currentWord || !todaySession?.reviewWordIds?.includes(currentWord.id)) {
+  if (!currentWord) {
+    return;
+  }
+
+  if (todaySession?.sampleWordIds?.includes(currentWord.id)) {
+    if (!todaySession.sampleCompletedIds.includes(currentWord.id)) {
+      todaySession.sampleCompletedIds.push(currentWord.id);
+      saveTodaySession();
+      renderLearningData();
+    }
+    return;
+  }
+
+  if (!todaySession?.reviewWordIds?.includes(currentWord.id)) {
     return;
   }
 
@@ -690,7 +768,7 @@ function recordCompletedPlayback(currentWord) {
       window.ReviewService.markAutoMastered(data, currentWord.id);
       window.MasteredService.markAuto(masteredData, currentWord.id);
       window.MasteredService.save(masteredData, currentLibraryId);
-      renderMasteredButton(currentWord);
+      renderWordStatusButtons(currentWord);
     }
 
     saveLearningData(data);
@@ -789,7 +867,7 @@ function createWordPlayer() {
       updateTodaySessionPosition(position);
     },
     onSessionComplete: completeTodaySession,
-    onWordChange: renderMasteredButton,
+    onWordChange: renderWordStatusButtons,
     onWordComplete: recordCompletedPlayback,
     recordLearning,
   });
@@ -851,6 +929,10 @@ loadWords().then(() => {
 
   if (librarySelect) {
     librarySelect.addEventListener("change", handleLibraryChange);
+  }
+
+  if (toggleSkipped) {
+    toggleSkipped.addEventListener("click", handleSkippedToggle);
   }
 
   if (toggleMastered) {

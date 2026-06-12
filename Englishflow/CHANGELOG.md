@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-06-12
+
+- Refined TODO 064: changing dailyGoal rebuilds learning words while preserving the same daily sample pool.
+- Completed TODO 064: stabilized daily mastered samples and moved them before new words in session playback.
+- Completed TODO 063: added a persisted daily sample pool of up to five mastered words without review scheduling.
+- Completed TODO 062: clarified direct skipped/mastered transitions and unified mastery wording.
+- Completed TODO 059: split word exclusion status into skipped and mastered with legacy storage compatibility.
+- Completed TODO 061: rebuilt todaySession as all due reviews plus the full available daily new-word goal.
+- Completed TODO 060: automatically selects a preferred natural English browser voice when available.
+
 ## 2026-06-11
 
 - Completed TODO 058: restricted unique new word counting to dailyWords only.

@@ -35,6 +35,7 @@ window.CONFIG = {
     shuffle: "shuffle",
   },
   reviewIntervals: [1, 2, 4, 7, 15],
+  masteredSampleLimit: 5,
   historyLimit: 150,
   speechFallbackDelay: 3000,
   fallbackWords: [
