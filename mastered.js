@@ -20,16 +20,24 @@ window.MasteredService = {
     return `${year}-${month}-${day}`;
   },
 
-  createRecord(wordId, existingRecord, source = "manual") {
+  createRecord(wordId, existingRecord, status, source = "manual") {
     return {
       id: wordId,
       date: this.getTodayKey(),
       count: (Number(existingRecord?.count) || 0) + 1,
-      unmasterCount: Number(existingRecord?.unmasterCount) || 0,
+      restoreCount: Number(existingRecord?.restoreCount ?? existingRecord?.unmasterCount) || 0,
       relearnCount: Number(existingRecord?.relearnCount) || 0,
-      mastered: true,
+      status,
       source,
     };
+  },
+
+  normalizeStatus(item) {
+    if (["active", "skipped", "mastered"].includes(item?.status)) {
+      return item.status;
+    }
+
+    return item?.mastered === false ? "active" : "mastered";
   },
 
   normalize(data) {
@@ -40,9 +48,9 @@ window.MasteredService = {
             id: item.id || Number(id) || id,
             date: item.date || this.getTodayKey(),
             count: Number(item.count) || 0,
-            unmasterCount: Number(item.unmasterCount) || 0,
+            restoreCount: Number(item.restoreCount ?? item.unmasterCount) || 0,
             relearnCount: Number(item.relearnCount) || 0,
-            mastered: item.mastered !== false,
+            status: this.normalizeStatus(item),
             source: item.source || "manual",
           };
 
@@ -59,9 +67,9 @@ window.MasteredService = {
           id,
           date: this.getTodayKey(),
           count: 1,
-          unmasterCount: 0,
+          restoreCount: 0,
           relearnCount: 0,
-          mastered: true,
+          status: "mastered",
           source: "manual",
         };
       });
@@ -86,35 +94,70 @@ window.MasteredService = {
     });
   },
 
-  isMastered(data, wordId) {
-    return Boolean(data.items?.[wordId]?.mastered);
+  getStatus(data, wordId) {
+    return data.items?.[wordId]?.status || "active";
   },
 
-  toggle(data, wordId) {
-    data.items = data.items || {};
+  isActive(data, wordId) {
+    return this.getStatus(data, wordId) === "active";
+  },
 
-    if (this.isMastered(data, wordId)) {
-      data.items[wordId] = {
-        ...data.items[wordId],
-        date: this.getTodayKey(),
-        unmasterCount: (Number(data.items[wordId].unmasterCount) || 0) + 1,
-        mastered: false,
-      };
-      return false;
+  isSkipped(data, wordId) {
+    return this.getStatus(data, wordId) === "skipped";
+  },
+
+  isMastered(data, wordId) {
+    return this.getStatus(data, wordId) === "mastered";
+  },
+
+  getRandomMasteredWords(data, words, limit) {
+    const masteredWords = words.filter((word) => this.isMastered(data, word.id));
+
+    for (let index = masteredWords.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [masteredWords[index], masteredWords[swapIndex]] = [masteredWords[swapIndex], masteredWords[index]];
     }
 
-    data.items[wordId] = this.createRecord(wordId, data.items[wordId], "manual");
-    return true;
+    return masteredWords.slice(0, Math.max(0, Number(limit) || 0));
+  },
+
+  getNextStatus(currentStatus, selectedStatus) {
+    if (currentStatus === selectedStatus) {
+      return "active";
+    }
+
+    return selectedStatus;
+  },
+
+  setStatus(data, wordId, status, source = "manual") {
+    data.items = data.items || {};
+    const currentStatus = this.getStatus(data, wordId);
+    const nextStatus = this.getNextStatus(currentStatus, status);
+
+    if (nextStatus === "active") {
+      data.items[wordId] = {
+        ...data.items[wordId],
+        id: wordId,
+        date: this.getTodayKey(),
+        restoreCount: (Number(data.items[wordId]?.restoreCount) || 0) + 1,
+        status: "active",
+        source,
+      };
+      return "active";
+    }
+
+    data.items[wordId] = this.createRecord(wordId, data.items[wordId], nextStatus, source);
+    return nextStatus;
   },
 
   markAuto(data, wordId) {
     data.items = data.items || {};
 
-    if (this.isMastered(data, wordId)) {
+    if (!this.isActive(data, wordId)) {
       return false;
     }
 
-    data.items[wordId] = this.createRecord(wordId, data.items[wordId], "auto");
+    data.items[wordId] = this.createRecord(wordId, data.items[wordId], "mastered", "auto");
     return true;
   },
 };
