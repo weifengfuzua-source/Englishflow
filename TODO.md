@@ -153,6 +153,8 @@
 
 ✅065 修复 GitHub Pages 缓存版本号
 
+✅M5-verify-pages-index 确认 GitHub Pages 根 index.html 与资源版本
+
 ⬜036 学习范围选择
 
 ⬜037 全部单词模式

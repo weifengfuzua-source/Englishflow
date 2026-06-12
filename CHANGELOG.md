@@ -2,6 +2,7 @@
 
 ## 2026-06-12
 
+- Verified the root index.html is the only index file, contains separate skip/master buttons, and uses v=20260612-065 for all CSS/JS resources.
 - Completed TODO 065: updated all CSS and JavaScript resource versions to force GitHub Pages cache refresh.
 - Refined TODO 064: changing dailyGoal rebuilds learning words while preserving the same daily sample pool.
 - Completed TODO 064: stabilized daily mastered samples and moved them before new words in session playback.
